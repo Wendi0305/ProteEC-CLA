@@ -1,11 +1,3 @@
-#!/usr/bin/env python3cond
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jan 20 15:37:11 2020
-
-@author: mheinzinger
-"""
-
 import seaborn as sn
 import numpy as np
 import torch
@@ -20,8 +12,6 @@ import copy
 import h5py     
 from model.EfficientAdditiveAttnetion import EfficientAdditiveAttnetion
 
-# The following settings will depend on your setup
-# matplotlib import & config
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')  # GPU is only available via SSH (no display)
 plt.clf()  # clear previous figures if already existing
@@ -30,7 +20,6 @@ plt.clf()  # clear previous figures if already existing
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-# https://discuss.pytorch.org/t/reproducibility-with-all-the-bells-and-whistles/81097
 def seed_all(seed=42):
     print("[ Using Seed : ", seed, " ]")
     torch.manual_seed(seed)
@@ -50,9 +39,9 @@ class ProtTucker(nn.Module):
         self.attention = EfficientAdditiveAttnetion(in_dims=1280, token_dim=1280)
 
         self.protTucker = nn.Sequential(
-            nn.Linear(1280, 256),           # 将输入维度为 1280 的数据转换为输出维度为 256 
-            nn.Tanh(),                      # 对线性层的输出进行非线性变换
-            nn.Linear(256, 128),            # 将输入维度为 256 的数据转换为输出维度为 128
+            nn.Linear(1280, 256),           
+            nn.Tanh(),                   
+            nn.Linear(256, 128),            
         )        
 
     def single_pass(self, X):
@@ -67,8 +56,7 @@ class ProtTucker(nn.Module):
         return (anchor, pos, neg)
     
 
-class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照需求返回不同抽样方式下的三元组
-
+class CustomDataset(torch.utils.data.Dataset):    
     def __init__(self, train, datasplitter, n_classes, balanced_sampling=False):
         self.balanced_sampling = balanced_sampling
         self.seq_id, self.embd = zip(
@@ -76,13 +64,12 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
 
         self.id2label, self.label2id = datasplitter.parse_label_mapping_cath(set(train.keys()))
 
-        # if classes should be sampled evenly (not all training samples are used in every epoch) 如果类应该均匀采样（并非所有训练样本都在每个 epoch 中使用）
-        # 是否采用平衡抽样
+        # if classes should be sampled evenly (not all training samples are used in every epoch) 
         if self.balanced_sampling:
             print("Using balanced sampling!")
             self.unique_labels = self.get_unique_labels()
             self.data_len = len(self.unique_labels)
-        else:  # if you want to iterate over all training samples 如果要遍历所有训练样本
+        else:  # if you want to iterate over all training samples 
             self.data_len = len(self.seq_id)
 
         self.id2embedding = train
@@ -92,16 +79,16 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
         return self.data_len
 
     def __getitem__(self, index):
-        if self.balanced_sampling:  # get a CATH class, instead of a trainings sample
-            c, a, t, h = self.unique_labels[index] # get CATH class
-            anchor_candidates = self.label2id[c][a][t][h] # get samples within this CATH class
+        if self.balanced_sampling:  
+            c, a, t, h = self.unique_labels[index] 
+            anchor_candidates = self.label2id[c][a][t][h] 
             anchor_id = random.choice(anchor_candidates) # randomly pick one of these samples as anchor
             anchor = self.id2embedding[anchor_id] # retrieve embedding for this sample
             anchor_label = self.id2label[anchor_id] # retrieve label for this sample
-        else:  # get a training sample (over-samples large CATH families according to occurance)
+        else:  # get a training sample
             anchor = self.embd[index] # get embedding of anchor
-            anchor_id = self.seq_id[index] # get CATH ID of anchor
-            anchor_label = self.id2label[anchor_id] # get CATH label of anchor
+            anchor_id = self.seq_id[index] # get ID of anchor
+            anchor_label = self.id2label[anchor_id] # get label of anchor
         pos, neg, pos_label, neg_label, pos_sim = self.get_pair(
             anchor_id, anchor_label)
         return (anchor, pos, neg, anchor_label, pos_label, neg_label, pos_sim)
@@ -119,7 +106,6 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
         print("Number of unique CATH labels in train: {}".format(len(unique_set)))
         return unique_labels
 
-    # 从类别集合中随机选择一个类别，确保不选择与已有类别相同的。
     def get_rnd_label(self, labels, is_pos, existing_label=None):           
         n_labels = len(labels)
         # if alternative labels are available, ensure difference between existing and new label
@@ -136,14 +122,14 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
         # do not accidentaly draw the same label; instead draw again if necessary
         if existing_label is not None and rnd_label == existing_label:
             if is_pos:  # return the label itself for positives
-                # Allow positives to have the same class as the anchor (relevant for rare classes) 允许正样本与锚点具有相同的类（与稀有类相关）。
+                # Allow positives to have the same class as the anchor (relevant for rare classes) 
                 return existing_label
             else:
-                # if there exists no negative sample for a certain combination of anchor and similarity-level 如果锚点和相似度级别的特定组合不存在负样本
+                # if there exists no negative sample for a certain combination of anchor and similarity-level 
                 return None
         return rnd_label
 
-    # 根据相似性级别和锚定样本的标签获取候选样本。
+
     def get_rnd_candidates(self, anchor_label, similarity_level, is_pos):
 
         # Get CATH classification of anchor sample
@@ -190,24 +176,24 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
 
         return candidates
 
-    # 检查三元组样本是否满足一定的条件。
+  
     def check_triplet(self, anchor_label, pos_label, neg_label, neg_hardness, pos_hardness):
         assert neg_hardness < pos_hardness, print(
-            "Neg sample more similar than pos sample")      # 负样本比正样本更相似
+            "Neg sample more similar than pos sample")      
 
-        # 正标签不重叠
+      
         for i in range(0, pos_hardness):
             assert anchor_label[i] == pos_label[i], print("Pos label not overlapping:\n" +
                                                          "Diff: {}\nanchor:{}\npos:{}\nneg:{}".format(pos_hardness, anchor_label, pos_label, neg_label))
-        #负标签不重叠
+       
         for j in range(0, neg_hardness):
             assert anchor_label[j] == neg_label[j], print("Neg label not overlapping:\n" +
                                                          "Diff: {}\nanchor:{}\npos:{}\nneg:{}".format(neg_hardness, anchor_label, pos_label, neg_label))
         assert anchor_label[neg_hardness] != neg_label[neg_hardness], print(
-            "Neg label not different from anchor")          # 负标签与锚定标签无区别
+            "Neg label not different from anchor")          
         return None
 
-    # 获取一个三元组样本
+ 
     def get_pair(self,  anchor_id, anchor_label, hardness_level=None, verbose=False):
         pos, neg = None, None
         pos_label, neg_label = None, None
@@ -223,39 +209,35 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
                 neg = self.id2embedding[neg_id] # get embedding of randomly picked neg.
                 
                 # repeat the same for the positive sample
-                # 对正样本重复相同的操作
                 pos_candidates = self.get_rnd_candidates(
                     anchor_label, pos_similarity, is_pos=True)
                 pos_id = random.choice(pos_candidates)
                 
                 # ensure that we do not randomly pick the same protein as anchor and positive
-                # 确保不会随机挑选相同的蛋白质作为锚定样本和正样本
                 if pos_id == anchor_id and len(pos_candidates) > 1:
                     while pos_id == anchor_id: # re-draw from the pos. candidates if possible
                         pos_id = random.choice(pos_candidates)
-                # if there is only one protein in a superfamily (anchor==positive without other candidates), re-start picking process
-                # 如果超家族中只有一种蛋白质(锚==正，没有其他候选蛋白)，则重新开始挑选过程        
+                # if there is only one protein in a superfamily (anchor==positive without other candidates), re-start picking process     
                 elif pos_id == anchor_id and len(pos_candidates) == 1:
                     continue
 
                 pos = self.id2embedding[pos_id]
                 pos_label = self.id2label[pos_id]
                 # if we successfully picked anchor, positive and negative candidates, do same sanity checks
-                # 如果我们成功选择了锚点、正样本和负样本，则进行相同的健全性检查
                 if pos_label is not None and neg_label is not None:
                     self.check_triplet(anchor_label, pos_label,
                                        neg_label, neg_similarity, pos_similarity)
-                else: # if no triplet could be formed for a given combination of similarities/classes 不能形成三元组
+                else: # if no triplet could be formed for a given combination of similarities/classes
                     continue
 
-            except NotImplementedError: #  if you try to create triplets for a class level that is not yet implemented in get_rnd_candidates 如果您尝试为尚未在 get_rnd_candidates 中实现的类级别创建三元组
+            except NotImplementedError: #  if you try to create triplets for a class level that is not yet implemented in get_rnd_candidates 
                 print(anchor_id, anchor_label)
                 raise NotImplementedError
 
             except KeyError:
-                # if get_rnd_label returned None because no negative could be found  如果 get_rnd_label 返回 None，是因为找不到负样本
-                # for a certain combination of anchor protein and similarity-lvl     对于锚定样本和相似性的某种组合
-                # re-start picking process      重新开始拣选流程
+                # if get_rnd_label returned None because no negative could be found  
+                # for a certain combination of anchor protein and similarity-lvl    
+                # re-start picking process   
                 continue
 
         if verbose:
@@ -266,7 +248,7 @@ class CustomDataset(torch.utils.data.Dataset):      # 处理数据集，按照�
             print('#### Example ####')
 
         return pos, neg, pos_label, neg_label, pos_similarity
-    # 获取一个示例三元组样本，并输出详细信息
+   
     def get_example(self):
         example_id = next(iter(self.id2embedding.keys()))
         example_label = self.id2label[example_id]
@@ -278,40 +260,38 @@ class DataSplitter():
     def __init__(self, embedding_p, verbose=True):      # embedding_p ：SwissProt.h5
         self.verbose = verbose
         self.data_dir = embedding_p.parent
-        self.id2embedding = self.get_precomputed_embeddings(embedding_p)            # 加载嵌入数据：从.h5文件中加载预先计算的嵌入数据，将数据存储在dataset中
-                                                                                    # 键是蛋白质ID，值是对应的embedding
+        self.id2embedding = self.get_precomputed_embeddings(embedding_p)           
+                                                                                   
         if verbose:
-            print('Loaded embeddings for n_proteins: {}'.format(len(self.id2embedding)))    #.h5里有多少个蛋白质的embedding
+            print('Loaded embeddings for n_proteins: {}'.format(len(self.id2embedding)))    
 
         self.cath_label_path = self.data_dir / 'EClist-0222.txt'
         
-        self.id2label, self.label2id = self.parse_label_mapping_cath(set(self.id2embedding.keys())) # 将蛋白质ID与CATH类别之间建立映射关系，并存储在id2label和label2id中。
+        self.id2label, self.label2id = self.parse_label_mapping_cath(set(self.id2embedding.keys())) 
 
     def get_id2embedding(self):
         return self.id2embedding
 
-    def parse_label_mapping_cath(self, id_subset):      # 解析标签映射（EClist.txt），将 蛋白质ID 映射到 EC 类别 ，并返回两个字典：id2label 和 label2id
+    def parse_label_mapping_cath(self, id_subset):      
         id2label = dict()
         label2id = dict()
         with open(self.cath_label_path, 'r') as f:
             for n_domains, line in enumerate(f):
-                
-                # 跳过空白行
+              
                 if not line.strip():
                     continue
 
-                # skip header lines 跳过注释
+                # skip header lines 
                 if line.startswith("#"):
                     continue
 
                 data = line.split()
 
-                # 检查是否有足够的数据项
                 if len(data) < 2:
                     continue
                 
                 identifier = data[0]
-                # skip annotations of proteins without embedding (not part of data set) 如果蛋白质ID不在id_subset中，跳过这个蛋白质的处理
+                # skip annotations of proteins without embedding (not part of data set) 
                 if identifier not in id_subset:
                     continue
 
@@ -336,22 +316,21 @@ class DataSplitter():
                 if cath_homo not in label2id[cath_class][cath_arch][cath_topo]:
                     label2id[cath_class][cath_arch][cath_topo][cath_homo] = list()
 
-                id2label[identifier] = [cath_class, cath_arch, cath_topo, cath_homo]        # 构建映射关系，将蛋白质ID映射到CATH类别
-                label2id[cath_class][cath_arch][cath_topo][cath_homo].append(identifier)    # 构建反向映射，将CATH类别映射到蛋白质ID，并将蛋白质ID添加到对应的列表中
-
+                id2label[identifier] = [cath_class, cath_arch, cath_topo, cath_homo]        
+                label2id[cath_class][cath_arch][cath_topo][cath_homo].append(identifier)   
         if self.verbose:
             print('Finished parsing n_domains: {}'.format(n_domains))
             print("Total length of id2label: {}".format(len(id2label)))
         return id2label, label2id
 
-    def read_cath_ids(self, path):          # path: .fasta文件  从文件中读取蛋白质的ID和序列，并返回一个包含蛋白质ID的列表id_list。
+    def read_cath_ids(self, path):         
         ids = set()
         id_list = list()
         seq_test = dict()
 
         with open(path, 'r') as f:
             for line in f:
-                line = line.strip() # 去除行末尾的空白字符
+                line = line.strip()
                 if line.startswith('>'):
                     line = line.replace(">", "")
                     if '|' in line:
@@ -359,7 +338,7 @@ class DataSplitter():
                     else:
                         seq_id = line
 
-                    if seq_id in ids:  # some weird double entries in CATH test set.. 检查是否已经处理过具有相同ID的蛋白质，如果是，则跳过
+                    if seq_id in ids:  # some weird double entries in CATH test set.. 
                         continue
 
                     ids.add(seq_id)
@@ -369,12 +348,12 @@ class DataSplitter():
                 else:
                     seq_test[seq_id].append(line)
 
-        # some identical sequences need to be removed 去除相同序列的重复项，创建了一个seq_set字典
+        # some identical sequences need to be removed 
         seq_set = {''.join(seq): seq_id for seq_id, seq in seq_test.items()}
 
-        id_list = [seq_id for seq, seq_id in seq_set.items()] # 更新id_list，只包含去除重复序列后的蛋白质ID
+        id_list = [seq_id for seq, seq_id in seq_set.items()] 
 
-        # assert that no identical seqs are in the sets 断言确保没有相同序列的蛋白质存在
+        # assert that no identical seqs are in the sets 
         assert len(seq_set) == len(id_list)
 
         if self.verbose:
@@ -383,7 +362,7 @@ class DataSplitter():
 
         return id_list
 
-    def get_precomputed_embeddings(self, embedding_p):      # 加载： 加载 HDF5文件中的嵌入数据，并返回一个包含嵌入数据的字典 dataset ，键是蛋白质ID，值是对应的嵌入数据
+    def get_precomputed_embeddings(self, embedding_p):      
         # load pre-computed embeddings in .h5 file format
         h5_f = h5py.File(embedding_p, 'r')
         try:
@@ -396,7 +375,7 @@ class DataSplitter():
         print("Example: {}".format(next(iter(dataset.keys()))))
         return dataset
 
-    def get_embeddings(self, fasta_path):               # 获取： 根据FASTA文件中的蛋白质ID 获取 相应的嵌入数据，并将其存储在字典中，然后返回这个字典 embeddings ，键是蛋白质ID，值是嵌入数据
+    def get_embeddings(self, fasta_path):              
         cath_ids = self.read_cath_ids(fasta_path)
         embeddings = dict()
         for cath_id in cath_ids:
@@ -619,8 +598,8 @@ class Eval():
             log[i] = list()
         return log
 
-    def init_confmats(self):    # 初始化混淆矩阵。它创建一个包含多个类别混淆矩阵的列表，并将它们连接成一个大的混淆矩阵，然后返回该混淆矩阵。(每一行一个类)
-                                # 连接后的混淆矩阵可用于计算多类别分类任务的整体性能指标。
+    def init_confmats(self):   
+                               
                                     # [[TN_0, FP_0, FN_0, TP_0],
                                     #  [TN_1, FP_1, FN_1, TP_1],
                                     #  [TN_2, FP_2, FN_2, TP_2],
@@ -628,7 +607,7 @@ class Eval():
                                     #  [TN_n, FP_n, FN_n, TP_n]]
         confmats = list()
         for i in range(self.n_classes):
-            confmat = np.zeros((1, 2, 2)) # 初始混淆矩阵是一个形状为 (1, 2, 2) 的零矩阵。这里 (1, 2, 2) 表示每个类别的混淆矩阵是一个 2x2 矩阵，用于记录该类别的分类结果。
+            confmat = np.zeros((1, 2, 2))
             confmats.append(confmat)
         confmats = np.concatenate(confmats, axis=0)
         return confmats
@@ -642,7 +621,7 @@ class Eval():
         dataset = torch.cat(dataset, dim=0)
         return dataset, idx2label
 
-    def add_sample(self, y, yhat, confmats):        # 这个方法用于添加样本到混淆矩阵。它接受真实标签y、预测标签yhat和混淆矩阵confmats作为输入，并根据预测结果更新混淆矩阵
+    def add_sample(self, y, yhat, confmats):        
         wrong = False
 
         for class_lvl, true_class in enumerate(y):  # for each prediction
@@ -658,10 +637,10 @@ class Eval():
             confmats[class_lvl, correct, correct] += 1
         return confmats
 
-    def pdist(self, sample_1, sample_2, norm=2):    # 计算两个样本之间的距离。它接受两个样本sample_1和sample_2，以及距离计算的规范（默认为L2范数），并返回它们之间的距离。
+    def pdist(self, sample_1, sample_2, norm=2):   
         return torch.cdist(sample_1.unsqueeze(dim=0), sample_2.unsqueeze(dim=0), p=norm).squeeze(dim=0)
 
-    def mergeTopK(self, yhats):                     # 合并多个最近邻预测结果。它接受一个包含多个预测结果的列表yhats，并返回合并后的预测结果。
+    def mergeTopK(self, yhats):                  
         yhats = np.vstack(yhats)
 
         final_yhat = [None, None, None, None]
@@ -675,9 +654,9 @@ class Eval():
 
         return final_yhat
 
-    def mask_singletons(self, y):                   # 掩盖单个样本。它接受标签y，并检查是否存在单个样本的情况，如果存在，则将相应的标签设置为NaN。
+    def mask_singletons(self, y):                 
         # Mask cases where the only annotated instance is the test protein
-        # Those cases can not be predicted correctly without considering self-hits 处理那些在标签中只有一个样本被注释，并且这个样本是测试蛋白质自身的情况
+        # Those cases can not be predicted correctly without considering self-hits 
         c, a, t, h = y
         if len(self.label2id[c][a][t][h]) == 1:  # if h-lvl has only the test prot
             y[-1] = np.nan
@@ -689,7 +668,7 @@ class Eval():
                         y[-4] = np.nan
         return y
 
-    def compute_err(self, confmat, n_bootstrap=10000):      # 计算错误率。它接受混淆矩阵confmat和bootstrap采样次数n_bootstrap，并返回错误率的标准差。
+    def compute_err(self, confmat, n_bootstrap=10000):     
         n_total = int(confmat.sum())  # total number of predictions
         n_wrong, n_correct = int(confmat[0, 0]), int(confmat[1, 1])
         preds = [0 for _ in range(n_wrong)] + [1 for _ in range(n_correct)]
@@ -699,52 +678,45 @@ class Eval():
             subset_accs.append(sum(rnd_subset)/n_total)
         return np.std(np.array(subset_accs), axis=0, ddof=1)
 
-    def evaluate(self, lookup, queries, n_nearest=1, update=True):  # 评估模型性能。它接受查找集lookup、查询集queries、最近邻数n_nearest和是否更新的标志update。它计算最近邻并更新混淆矩阵，然后返回准确度和错误率。
-        p_dist = self.pdist(lookup.float(), queries.float())      # 计算两个样本之间的距离。它接受两个样本以及距离计算的规范（默认为L2范数），并返回它们之间的距离。
+    def evaluate(self, lookup, queries, n_nearest=1, update=True):
+        p_dist = self.pdist(lookup.float(), queries.float())    
+        _, nn_idxs = torch.topk(p_dist, n_nearest, largest=False, dim=0) 
 
-        _, nn_idxs = torch.topk(p_dist, n_nearest, largest=False, dim=0) # torch.topk 函数用于找到最接近的样本，n_nearest 参数指定要返回的最近邻数量。
-
-        confmats = self.init_confmats() # 创建 confmats 存储模型的性能指标
-        n_test = len(self.testIdx2label) # 获取测试集中样本的数量。
-        for test_idx in range(n_test):  # for all test proteins 循环遍历测试集中的每个样本。
-            y_id = self.testIdx2label[test_idx]  # get id of test protein 获取当前测试样本的标签 y_id 
-            y = copy.deepcopy(self.id2label[y_id]) # get annotation of test (groundtruth) 获取测试样本的标签信息 y 
+        confmats = self.init_confmats() 
+        n_test = len(self.testIdx2label)
+        for test_idx in range(n_test):  
+            y_id = self.testIdx2label[test_idx]  # get id of test protein
+            y = copy.deepcopy(self.id2label[y_id]) # get annotation of test (groundtruth) 
             # y = self.mask_singletons(y)
             
-            # 调用 mask_singletons 函数并获取返回值 （数据处理）
             masked_y = self.mask_singletons(y)
 
-            # 在这里添加打印语句来检查标签中哪些部分变成了 NaN
             # print("Original y:", y)
             # print("Masked y:", masked_y)
 
-            # 现在可以检查 masked_y 中哪些部分是 NaN    
-            # 可是输出：Original y: [2, 7, 6, 1] 、Masked y: [2, 7, 6, 1]，y 和 masked_y 是一样的，mask_singletons()函数的作用是什么
-
-
-            nn_idx = nn_idxs[:, test_idx]       # 获取当前测试样本的 最近邻索引
-            yhats = list()                      # 存储 最近邻的预测标签
-            for nn_i in nn_idx:                 # 循环遍历最近邻的索引
+            nn_idx = nn_idxs[:, test_idx]      
+            yhats = list()                      
+            for nn_i in nn_idx:                
                 # index of nearest neighbour (nn) in train set
                 nn_i = int(toCPU(nn_i))
                 # get id of nn (infer annotation)
-                yhat_id = self.lookupIdx2label[nn_i]    # 获取最近邻的ID
+                yhat_id = self.lookupIdx2label[nn_i]    
                 # get annotation of nn (groundtruth)
-                yhat = self.id2label[yhat_id]           # 获取最近邻的标签信息
-                yhat = np.asarray(yhat)                 # 将标签信息转换为NumPy数组
-                yhats.append(yhat)                      # 将最近邻的标签添加到 yhats 列表中。
+                yhat = self.id2label[yhat_id]          
+                yhat = np.asarray(yhat)                 
+                yhats.append(yhat)                     
 
-            if n_nearest == 1:                       # 如果 n_nearest 为1（只考虑一个最近邻），则确保 yhats 中只有一个标签。如果不是，则输出一条警告信息。
+            if n_nearest == 1:                      
                 assert len(yhats) == 1, print("More than one NN retrieved, though, n_nearest=1!")
-                yhat = yhats[0]                      # 将最近邻的标签赋给 yhat
+                yhat = yhats[0]                      
             else:
-                yhat = self.mergeTopK(yhats)         # 如果 n_nearest 不是1，则需要合并多个最近邻的标签。它接受一个包含多个预测结果的列表yhats，并返回合并后的预测结果。
-            confmats = self.add_sample(y, yhat, confmats) # 将当前测试样本的真实标签 y 和预测标签 yhat 添加到混淆矩阵 confmats 中，以便后续计算性能指标。
+                yhat = self.mergeTopK(yhats)        
+            confmats = self.add_sample(y, yhat, confmats) 
 
         if update:  # for constantly monitoring test performance
             for i in range(self.n_classes):
-                acc = confmats[i, 1, 1] / confmats[i].sum()     # 计算每个类别的准确度 acc ，模型正确分类的样本数量除以该类别总共的样本数量。
-                err = self.compute_err(confmats[i])             # 计算每个类别的错误率 err , 模型错误分类的样本数量除以该类别总共的样本数量。
+                acc = confmats[i, 1, 1] / confmats[i].sum()   
+                err = self.compute_err(confmats[i])            
                 self.accs[i].append(acc)
                 self.errs[i].append(err)
             return self.accs, self.errs
@@ -851,9 +823,9 @@ class TripletLoss(object):
         return dist_ap, dist_an, mask_pos
 
     def get_batch_hard(self, anchor, pos, neg, Y):
-        Y = torch.cat([Y[:, 0, :], Y[:, 1, :], Y[:, 2, :]], dim=0)      # Y (768,4)
-        X = torch.cat([anchor, pos, neg], dim=0)                        # X (768,128)
-        pdist = self.pdist(X)                                           # pdist (768, 768)
+        Y = torch.cat([Y[:, 0, :], Y[:, 1, :], Y[:, 2, :]], dim=0)    
+        X = torch.cat([anchor, pos, neg], dim=0)                       
+        pdist = self.pdist(X)                                          
 
         dist_ap, dist_an = list(), list()
         mask_pos = None
@@ -933,12 +905,12 @@ def toCPU(data):
     return data.cpu().detach().numpy()
 
 
-# count number of free parameters in the network 计算网络中可用参数的数量
+# count number of free parameters in the network 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-# Create dataloaders with custom collate function 使用自定义整理功能创建数据加载器
+# Create dataloaders with custom collate function 
 def dataloader(customdata, batch_size):
     my_collator = MyCollator()
     return torch.utils.data.DataLoader(dataset=customdata,
@@ -950,7 +922,7 @@ def dataloader(customdata, batch_size):
 
 
 
-# get baseline performance (no ProtTucker but raw pLM embeddings) 获得基线性能（无 ProtTucker，原始 pLM 嵌入）
+# get baseline performance (no ProtTucker but raw pLM embeddings) 
 def get_baseline(test):
     test_set = test.get_test_set()
     train_set = test.get_lookup_set()
@@ -967,19 +939,19 @@ def get_baseline(test):
 
 # test performance during training on validation set (used also for early stopping)
 def testing(model, test):
-    model.eval()        # 将模型设置为评估模式。在评估模式下，模型不会进行梯度计算，因为在测试时不需要更新模型参数。
+    model.eval()       
     with torch.no_grad():  # evaluate current performance (no grads)
-        test_emb = test.get_test_set()      # get_test_set 方法返回 self.test（val: ECval.fasta），这是一个包含测试数据嵌入的张量或数组。（从test中获取数据）
-        lookup_emb = test.get_lookup_set()  # get_lookup_set 方法返回 self.lookup（val_lookup20: ECtrain.fasta），这是包含查找数据嵌入的张量或数组。
-        test_tucker = model.single_pass(test_emb)   # model.single_pass 通常会将输入数据（嵌入）通过深度学习模型，生成模型的输出（通常是表示预测结果的张量）
+        test_emb = test.get_test_set()     
+        lookup_emb = test.get_lookup_set() 
+        test_tucker = model.single_pass(test_emb) 
         lookup_tucker = model.single_pass(lookup_emb)
         acc, err = test.evaluate(lookup_tucker, test_tucker)
-    model.train()  # 最后，将模型设置回训练模式，以便在后续的训练中更新模型的参数。
+    model.train() 
     return acc, err
 
 
 def main():
-    # measure training time 确保在每次运行代码时生成的随机数相同，这有助于重现实验结果。
+    # measure training time 
     start_overall = time.time()
     # set random seeds
     SEED = 42 
@@ -990,7 +962,7 @@ def main():
 
     data_dir = root / 'data' # create a directory for logging your experiments
     log_dir = root /  'log' / 'your_log_directory'
-    embedding_p = data_dir  /"example_data_subcell" /"ESM2-clustered-1280.h5"         # 预处理过的蛋白质序列的嵌入向量
+    embedding_p = data_dir  /"example_data_subcell" /"ESM2-clustered-1280.h5"         
 
     print("Loading dataset from: {}".format(embedding_p))
 
@@ -1012,30 +984,30 @@ def main():
     n_thresh = 20  # threshold for number of epochs that did not improve (threshold for early stopping)
     batch_hard = True  # whether to activate batch_hard sampling (recommneded)
     exclude_easy = False # whether to exclude trivial samples (did not improve performa)
-    margin = None # set this to a float to activate threshold-dependent loss functions (see TripletLoss) 将其设置为浮点数 以激活 与阈值相关的损失函数
+    margin = None # set this to a float to activate threshold-dependent loss functions (see TripletLoss) 
 
     # initialize plotting class (used to monitor loss etc during training)
     pltr = plotter(experiment_dir)
 
     # Prepare datasets
-    datasplitter = DataSplitter(embedding_p)                                    # embedding_p ：SwissProt.h5         数据加载和划分。了解 该函数如何加载和划分数据。
-    train_splits, val, val_lookup20 = datasplitter.get_predef_splits()          # 获取数据集（训练集、验证集、查找集）
+    datasplitter = DataSplitter(embedding_p)                                    
+    train_splits, val, val_lookup20 = datasplitter.get_predef_splits()          
 
-    val20 = Eval(val_lookup20, val,  datasplitter, n_classes)               # 评估验证集上的模型性能，根据提供的参数对验证集进行评估。
+    val20 = Eval(val_lookup20, val,  datasplitter, n_classes)              
 
-    train = CustomDataset(train_splits, datasplitter, n_classes)            # 数据加载和预处理。了解 该函数如何将数据处理成模型可以使用的格式。按照需求返回不同抽样方式下的三元组
+    train = CustomDataset(train_splits, datasplitter, n_classes)           
 
     train.get_example()
     train.get_example()
     train.get_example()
     train = dataloader(train, batch_size)
 
-    model = ProtTucker().to(device)                                                             # 了解 模型的架构和结构
-    criterion = TripletLoss(exclude_easy=exclude_easy, batch_hard=batch_hard, margin=margin)    # 了解 损失函数的类型和如何配置它
+    model = ProtTucker().to(device)                                                             
+    criterion = TripletLoss(exclude_easy=exclude_easy, batch_hard=batch_hard, margin=margin)    
 
-    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, amsgrad=True)            # 了解 优化器的类型以及学习率等参数的设置
+    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, amsgrad=True)            
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
-    saver = Saver(experiment_dir)                                                               # 了解 如何保存和加载模型
+    saver = Saver(experiment_dir)                                                              
     saver.save_checkpoint(model, 0, optimizer)
     baseline_acc, baseline_err = get_baseline(val20)
 
@@ -1045,34 +1017,34 @@ def main():
     print('#############################\n')
     print('Start training now!')
 
-    monitor = init_monitor()  # 跟踪训练过程中的性能指标。
+    monitor = init_monitor()  
     for epoch in range(num_epochs):  # for each epoch
 
         # =================== testing =====================
         start = time.time()
-        acc, err = testing(model, val20)  # evaluate using the validation 在验证集上测试模型性能.调用 testing 函数对模型进行验证
-        test_time = time.time() - start         # 验证过程时间
-        new_best = saver.check_performance(acc, model, epoch, optimizer)  # early stopping class 检查模型的性能是否有所改善，并且如果有改善，会保存新的最佳模型
+        acc, err = testing(model, val20)  # evaluate using the validation 
+        test_time = time.time() - start       
+        new_best = saver.check_performance(acc, model, epoch, optimizer)  # early stopping class 
         if new_best is None:  # if the new accuracy was worse than a previous one
             n_bad += 1
             if n_bad >= n_thresh:  # if more than n_bad consecutive epochs were worse, break training
                 pass
-                # break  # 如果连续 n_thresh 个 epoch 的性能都没有改善，就提前终止训练
-        else:  # if the new accuracy is larger than the previous best one by epsilon, reset counter 如果发现了新的最佳模型
+                # break  
+        else:  # if the new accuracy is larger than the previous best one by epsilon, reset counter 
             n_bad = 0
 
         # =================== training =====================
         # monitor epoch-wise performance
         epoch_monitor = init_monitor()
         start = time.time()
-        for train_idx, (X, Y, _) in enumerate(train):  # for each batch in the training set 迭代训练数据集，train 包含训练样本和标签
-            X = X.to(device)    # X (256, 3, 1280) 输入数据
-            Y = Y.to(device)    # Y (256, 3, 4)    对应标签
-            anchor, pos, neg = model(X)  # 使用模型进行前向传播，生成锚点（anchor）、正样本（positive，pos）和负样本（negative，neg）。
-            loss = criterion(anchor, pos, neg, Y, epoch_monitor) # 计算损失函数（loss），损失函数度量模型的预测与实际标签之间的差异
+        for train_idx, (X, Y, _) in enumerate(train):  # for each batch in the training set 
+            X = X.to(device)    # X (256, 3, 1280) 
+            Y = Y.to(device)    # Y (256, 3, 4)    
+            anchor, pos, neg = model(X)  
+            loss = criterion(anchor, pos, neg, Y, epoch_monitor) 
 
             # =================== backward ====================
-            optimizer.zero_grad()               # 这部分代码执行反向传播（backpropagation）和权重更新，以便模型逐渐调整参数以最小化损失函数。
+            optimizer.zero_grad()               
             loss.backward()
             optimizer.step()
 
