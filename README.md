@@ -20,10 +20,21 @@ ProteEC-CLA has been tested on two independent and representative datasets:
 2.**Clustered split dataset**
   This is a more challenging dataset designed to assess the model's ability to generalize across unseen protein families. The dataset is split into several clusters of related protein sequences, and the model is tasked with predicting EC numbers for sequences in clusters that were not seen during training. This dataset tests the robustness of the model and its ability to handle complex relationships between protein sequences and their functions.
 ## Data Access and Usage
-The datasets have been uploaded to the **master branch** of the repository. You can access and download the datasets directly from the following links:
-* 
-* 
-To use the datasets for testing or training your own models, follow the steps outlined in the repository's instructions.
+The datasets have been uploaded to the **master branch** of the repository. You can access and download the datasets directly from the following links:[master](https://github.com/Wendi0305/ProteEC-CLA/master).
 ## Data Format
 Data Format
 Both datasets are in FASTA format for protein sequences and include additional metadata such as EC numbers and sequence identifiers. The files have been organized to ensure easy integration into the model, and scripts for preprocessing are also provided in the repository.
+## Installation
+To install and set up the environment for running ProteEC-CLA, follow the steps below:
+**Clone the repository:**
+```
+git clone https://github.com/Wendi0305/ProteEC-CLA.git
+cd ProteEC-CLA
+```
+**Install dependencies:**
+It is recommended to use virtualenv or conda to create an isolated environment for the project.
+```
+pip install -r requirements.txt
+```
+**Download Pre-trained Models:**
+ProteEC-CLA uses the pre-trained **ESM2** model for sequence embedding. If the model weights are not found locally, they will be automatically downloaded.
