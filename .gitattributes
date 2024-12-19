@@ -1,0 +1,12 @@
+clustered_dev_df.fasta filter=lfs diff=lfs merge=lfs -text
+clustered_test_df.fasta filter=lfs diff=lfs merge=lfs -text
+clustered_train_df.fasta filter=lfs diff=lfs merge=lfs -text
+clustered_train_df.txt filter=lfs diff=lfs merge=lfs -text
+clustered_test_df.txt filter=lfs diff=lfs merge=lfs -text
+clustered_dev_df.txt filter=lfs diff=lfs merge=lfs -text
+random_dev_df.txt filter=lfs diff=lfs merge=lfs -text
+random_test_df.txt filter=lfs diff=lfs merge=lfs -text
+random_train_df.txt filter=lfs diff=lfs merge=lfs -text
+random_train_df.fasta filter=lfs diff=lfs merge=lfs -text
+random_test_df.fasta filter=lfs diff=lfs merge=lfs -text
+random_dev_df.fasta filter=lfs diff=lfs merge=lfs -text
