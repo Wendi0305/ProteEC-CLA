@@ -48,4 +48,6 @@ python TRAIN-ESM2-Agent.py
 ```
 python TEST-ESM2-Agent.py --fasta_fn /path/to/your/test_file.fasta -ont ec -v
 ```
-* `--fasta_fn`:Path to your test dataset in FASTA format (replace`/path/to/your/test_file.fasta` with the actual path to your file).
+* `--fasta_fn`:Path to your test dataset in FASTA format (replace`/path/to/your/test_file.fasta` with the actual path to your file).  
+* `-ont`:Specifies the ontology level for enzyme classification (e.g., `ec` for EC numbers).
+* `-v`:Enables verbose output, which will provide detailed logs during testing.
