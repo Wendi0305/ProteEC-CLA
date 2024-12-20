@@ -38,3 +38,14 @@ pip install -r requirements.txt
 ```
 **Download Pre-trained Models:**
 ProteEC-CLA uses the pre-trained **ESM2** model for sequence embedding. If the model weights are not found locally, they will be automatically downloaded.
+## Training and Testing
+To train and test the **ProteEC-CLA** model, follow these steps:  
+### Training  
+```
+python TRAIN-ESM2-Agent.py
+```
+### Testing  
+```
+python TEST-ESM2-Agent.py --fasta_fn /path/to/your/test_file.fasta -ont ec -v
+```
+* `--fasta_fn`:Path to your test dataset in FASTA format (replace`/path/to/your/test_file.fasta` with the actual path to your file).
