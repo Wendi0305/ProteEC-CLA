@@ -15,9 +15,9 @@ ProteEC-CLA is a novel model designed for predicting enzyme Commission (EC) numb
 * sentencepiece  
 ## Datasets
 ProteEC-CLA has been tested on two independent and representative datasets:
-1. **Random Split**
+**Random Split**
    This dataset contains labeled protein sequences that have been annotated with enzyme commission (EC) numbers. It serves as a benchmark for evaluating the performance of the model. The dataset is carefully curated to ensure a balanced distribution of protein sequences across different EC classes. It is commonly used for model validation and comparison with existing methods.  
-2. **Clustered split dataset**
+**Clustered split dataset**
   This is a more challenging dataset designed to assess the model's ability to generalize across unseen protein families. The dataset is split into several clusters of related protein sequences, and the model is tasked with predicting EC numbers for sequences in clusters that were not seen during training. This dataset tests the robustness of the model and its ability to handle complex relationships between protein sequences and their functions.
 ## Data Access and Usage
 The datasets have been uploaded to the **master branch** of the repository. You can access and download the datasets directly from the following links:[master](https://github.com/Wendi0305/ProteEC-CLA/master).
