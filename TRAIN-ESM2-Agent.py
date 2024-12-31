@@ -10,7 +10,7 @@ import time
 import random
 import copy
 import h5py     
-from model.EfficientAdditiveAttnetion import EfficientAdditiveAttnetion
+from model.AgentAttention import AgentAttention
 
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')  # GPU is only available via SSH (no display)
