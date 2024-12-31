@@ -33,26 +33,44 @@ def seed_all(seed=42):
 
     
 class ProtTucker(nn.Module):
-    def __init__(self):
+    def __init__(self, input_dim=1280, embed_dim=64, window=14):
         super(ProtTucker, self).__init__()
 
-        self.attention = EfficientAdditiveAttnetion(in_dims=1280, token_dim=1280)
+        self.embed_dim = embed_dim
+        self.window = window
+
+        self.embed_to_img = nn.Linear(input_dim, embed_dim * window * window)
+        
+        # AgentAttention
+        self.agent_attention = AgentAttention(dim=embed_dim, num_heads=8, 
+                                              qkv_bias=False, attn_drop=0., proj_drop=0.,
+                                              agent_num=49, window=window)
 
         self.protTucker = nn.Sequential(
-            nn.Linear(1280, 256),           
-            nn.Tanh(),                   
-            nn.Linear(256, 128),            
-        )        
+            nn.Linear(1280, 256),         
+            nn.Tanh(),                     
+            nn.Linear(256, 128),           
+        )
+        self.adjust_dim = nn.Linear(embed_dim * window * window, 256)
 
     def single_pass(self, X):
         X = X.float()
         return self.protTucker(X)
 
-    def forward(self, X):                        # X (256, 3, 1280)
-        X = self.attention(X)
-        anchor = self.single_pass(X[:, 0, :])    # anchor (256, 128)
-        pos = self.single_pass(X[:, 1, :])       # pos (256, 128)
-        neg = self.single_pass(X[:, 2, :])       # neg (256, 128)
+    def forward(self, X):                       
+        batch_size = X.shape[0]
+
+        X_embedded = self.embed_to_img(X.view(-1, X.size(-1)))
+        X_reshaped = X_embedded.view(batch_size * 3, self.window * self.window, self.embed_dim)  
+
+        attention_output = self.agent_attention(X_reshaped)
+        
+        X_adjusted = self.adjust_dim(attention_output.view(batch_size * 3, -1))
+        X_adjusted = X_adjusted.view(batch_size, 3, -1)
+        
+        anchor = self.single_pass(X[:, 0, :])    
+        pos = self.single_pass(X[:, 1, :])       
+        neg = self.single_pass(X[:, 2, :])      
         return (anchor, pos, neg)
     
 
